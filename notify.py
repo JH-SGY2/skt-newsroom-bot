@@ -20,11 +20,17 @@ def get_latest_posts():
         post_id = link.rstrip("/").split("/")[-1]
         categories = [c.text for c in item.findall("category") if c.text]
         is_press = "보도자료" in categories
-        posts.append({"title": title, "link": link, "id": post_id, "is_press": is_press})
+        is_notice = "알려드립니다" in categories
+        posts.append({"title": title, "link": link, "id": post_id, "is_press": is_press, "is_notice": is_notice})
     return posts
 
-def send_telegram(title, link, is_press):
-    label = "[보도자료] " if is_press else ""
+def send_telegram(title, link, is_press, is_notice):
+    if is_press:
+        label = "[보도자료] "
+    elif is_notice:
+        label = "[알려드립니다] "
+    else:
+        label = ""
     msg = f"📢 *SKT 뉴스룸 새 글*\n\n*{label}{title}*\n\n🔗 {link}"
     requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
@@ -59,10 +65,10 @@ def main():
         if post["title"] in sent_titles:
             print(f"중복 제목 건너뜀: {post['title']}")
             continue
-        send_telegram(post["title"], post["link"], post["is_press"])
+        send_telegram(post["title"], post["link"], post["is_press"], post["is_notice"])
         sent_titles.append(post["title"])
         sent_count += 1
-        print(f"발송 ({'보도자료' if post['is_press'] else '일반'}): {post['title']}")
+        print(f"발송 ({'보도자료' if post['is_press'] else '알려드립니다' if post['is_notice'] else '일반'}): {post['title']}")
 
     if new_posts:
         save_state(posts[0]["id"], sent_titles)
