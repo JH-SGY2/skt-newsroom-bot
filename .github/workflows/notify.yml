@@ -1,0 +1,41 @@
+name: SKT Newsroom Watcher
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # 10분마다 실행
+  workflow_dispatch:  # 수동 실행 버튼
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run notify script
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notify.py
+
+      - name: Save last_id
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-id
+          path: last_id.json
+          overwrite: true
+
+      - name: Download last_id
+        uses: actions/download-artifact@v4
+        with:
+          name: last-id
+        continue-on-error: true
