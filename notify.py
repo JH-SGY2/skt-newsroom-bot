@@ -14,8 +14,8 @@ def get_latest_posts():
     root = ET.fromstring(res.content)
     channel = root.find("channel")
     posts = []
-    for item in channel.findall("item")[:5]:
-        title = item.findtext("title", "")
+    for item in channel.findall("item")[:10]:
+        title = item.findtext("title", "").strip()
         link = item.findtext("link", "")
         post_id = link.rstrip("/").split("/")[-1]
         posts.append({"title": title, "link": link, "id": post_id})
@@ -29,32 +29,44 @@ def send_telegram(title, link):
         timeout=10
     )
 
-def load_last_id():
+def load_state():
     try:
         with open(LAST_ID_FILE) as f:
-            return json.load(f).get("last_id", "0")
+            return json.load(f)
     except:
-        return "0"
+        return {"last_id": "0", "sent_titles": []}
 
-def save_last_id(post_id):
+def save_state(last_id, sent_titles):
+    # 제목 목록은 최근 50개만 유지
     with open(LAST_ID_FILE, "w") as f:
-        json.dump({"last_id": post_id}, f)
+        json.dump({"last_id": last_id, "sent_titles": sent_titles[-50:]}, f, ensure_ascii=False)
 
 def main():
     posts = get_latest_posts()
     if not posts:
         return
 
-    last_id = load_last_id()
+    state = load_state()
+    last_id = state.get("last_id", "0")
+    sent_titles = state.get("sent_titles", [])
+
     new_posts = [p for p in posts if int(p["id"]) > int(last_id)]
 
-    # 오래된 순서대로 발송
+    sent_count = 0
     for post in reversed(new_posts):
+        # 제목 중복 체크
+        if post["title"] in sent_titles:
+            print(f"중복 제목 건너뜀: {post['title']}")
+            continue
         send_telegram(post["title"], post["link"])
+        sent_titles.append(post["title"])
+        sent_count += 1
         print(f"발송: {post['title']}")
 
     if new_posts:
-        save_last_id(posts[0]["id"])
+        save_state(posts[0]["id"], sent_titles)
+    
+    print(f"완료: 신규 {len(new_posts)}개 중 {sent_count}개 발송")
 
 if __name__ == "__main__":
     main()
