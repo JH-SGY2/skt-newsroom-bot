@@ -13,7 +13,6 @@ def get_latest_posts():
     headers = {"User-Agent": "Mozilla/5.0"}
     res = requests.get(NEWSROOM_URL, headers=headers, timeout=10)
     print("HTTP 상태코드:", res.status_code)
-    print("응답 앞부분:", res.text[:500])
 
     import xml.etree.ElementTree as ET
     root = ET.fromstring(res.content)
@@ -50,12 +49,13 @@ def send_telegram(title, link, is_press, is_notice):
         label = "[알려드립니다] "
     else:
         label = ""
-    msg = "📢 *SKT 뉴스룸 새 글*\n\n*" + label + title + "*\n\n🔗 " + link
-    requests.post(
+    msg = "📢 SKT 뉴스룸 새 글\n\n" + label + title + "\n\n🔗 " + link
+    res = requests.post(
         "https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage",
-        json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"},
+        json={"chat_id": CHAT_ID, "text": msg},
         timeout=10,
     )
+    print("텔레그램 응답:", res.status_code, res.text)
 
 
 def load_state():
