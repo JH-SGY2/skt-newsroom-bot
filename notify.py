@@ -12,11 +12,21 @@ LAST_ID_FILE = "last_id.json"
 def get_latest_posts():
     headers = {"User-Agent": "Mozilla/5.0"}
     res = requests.get(NEWSROOM_URL, headers=headers, timeout=10)
+    print("HTTP 상태코드:", res.status_code)
+    print("응답 앞부분:", res.text[:500])
+
     import xml.etree.ElementTree as ET
     root = ET.fromstring(res.content)
     channel = root.find("channel")
+    if channel is None:
+        print("channel 태그를 찾을 수 없음")
+        return []
+
+    items = channel.findall("item")
+    print("item 개수:", len(items))
+
     posts = []
-    for item in channel.findall("item")[:10]:
+    for item in items[:10]:
         title = item.findtext("title", "").strip()
         link = item.findtext("link", "")
         post_id = link.rstrip("/").split("/")[-1]
@@ -64,6 +74,7 @@ def save_state(last_id, sent_titles):
 def main():
     posts = get_latest_posts()
     if not posts:
+        print("posts가 비어 있어 종료")
         return
 
     state = load_state()
@@ -80,3 +91,22 @@ def main():
         if post["title"] in sent_titles:
             print("중복 제목 건너뜀: " + post["title"])
             continue
+        send_telegram(post["title"], post["link"], post["is_press"], post["is_notice"])
+        sent_titles.append(post["title"])
+        sent_count += 1
+        if post["is_press"]:
+            tag = "보도자료"
+        elif post["is_notice"]:
+            tag = "알려드립니다"
+        else:
+            tag = "일반"
+        print("발송 (" + tag + "): " + post["title"])
+
+    if new_posts:
+        save_state(posts[0]["id"], sent_titles)
+
+    print("완료: 신규 " + str(len(new_posts)) + "개 중 " + str(sent_count) + "개 발송")
+
+
+if __name__ == "__main__":
+    main()
