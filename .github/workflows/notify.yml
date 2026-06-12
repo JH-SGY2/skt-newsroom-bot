@@ -2,12 +2,15 @@ name: SKT Newsroom Watcher
 
 on:
   schedule:
-    - cron: '*/10 21-23,0-12 * * *'  # 한국 06시~22시: 10분마다
-    - cron: '0 13-20 * * *'           # 한국 22시~06시: 1시간마다
+    - cron: '*/10 21-23,0-12 * * *'
+    - cron: '0 13-20 * * *'
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
 
 jobs:
   check:
@@ -31,15 +34,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python notify.py
 
-      - name: Save last_id
-        uses: actions/upload-artifact@v4
-        with:
-          name: last-id
-          path: last_id.json
-          overwrite: true
-
-      - name: Download last_id
-        uses: actions/download-artifact@v4
-        with:
-          name: last-id
-        continue-on-error: true
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_id.json
+          git diff --staged --quiet || git commit -m "Update last_id.json"
+          git push
