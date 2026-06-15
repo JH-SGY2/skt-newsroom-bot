@@ -1,6 +1,8 @@
 name: SKT Newsroom Watcher
 
 on:
+  repository_dispatch:
+    types: [trigger-check]
   schedule:
     - cron: '*/10 21-23,0-12 * * *'
     - cron: '0 13-20 * * *'
