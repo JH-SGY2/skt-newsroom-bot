@@ -55,7 +55,12 @@ def send_telegram(title, link, is_press, is_notice):
         json={"chat_id": CHAT_ID, "text": msg},
         timeout=10,
     )
-    print("텔레그램 응답:", res.status_code, res.text)
+    if res.status_code == 200:
+        print("발송 성공: " + title)
+        return True
+    else:
+        print("발송 실패 (" + str(res.status_code) + "): " + res.text)
+        return False
 
 
 def load_state():
@@ -86,25 +91,37 @@ def main():
         if int(p["id"]) > int(last_id):
             new_posts.append(p)
 
+    if not new_posts:
+        print("신규 게시물 없음")
+        return
+
     sent_count = 0
+    new_last_id = last_id
+
     for post in reversed(new_posts):
         if post["title"] in sent_titles:
             print("중복 제목 건너뜀: " + post["title"])
+            new_last_id = post["id"]
             continue
-        send_telegram(post["title"], post["link"], post["is_press"], post["is_notice"])
-        sent_titles.append(post["title"])
-        sent_count += 1
-        if post["is_press"]:
-            tag = "보도자료"
-        elif post["is_notice"]:
-            tag = "알려드립니다"
+
+        success = send_telegram(post["title"], post["link"], post["is_press"], post["is_notice"])
+
+        if success:
+            sent_titles.append(post["title"])
+            new_last_id = post["id"]
+            sent_count += 1
+            if post["is_press"]:
+                tag = "보도자료"
+            elif post["is_notice"]:
+                tag = "알려드립니다"
+            else:
+                tag = "일반"
+            print("(" + tag + "): " + post["title"])
         else:
-            tag = "일반"
-        print("발송 (" + tag + "): " + post["title"])
+            print("발송 실패로 last_id 업데이트 중단: " + post["title"])
+            break
 
-    if new_posts:
-        save_state(posts[0]["id"], sent_titles)
-
+    save_state(new_last_id, sent_titles)
     print("완료: 신규 " + str(len(new_posts)) + "개 중 " + str(sent_count) + "개 발송")
 
 
