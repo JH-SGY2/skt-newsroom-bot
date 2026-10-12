@@ -25,17 +25,15 @@ def get_latest_posts():
     print("item 개수:", len(items))
 
     posts = []
-    for item in items[:10]:
+    for item in items[:20]:
         title = item.findtext("title", "").strip()
         link = item.findtext("link", "")
-        post_id = link.rstrip("/").split("/")[-1]
         categories = [c.text for c in item.findall("category") if c.text]
         is_press = "보도자료" in categories
         is_notice = "알려드립니다" in categories
         posts.append({
             "title": title,
             "link": link,
-            "id": post_id,
             "is_press": is_press,
             "is_notice": is_notice,
         })
@@ -68,12 +66,12 @@ def load_state():
         with open(LAST_ID_FILE) as f:
             return json.load(f)
     except Exception:
-        return {"last_id": "0", "sent_titles": []}
+        return {"sent_titles": []}
 
 
-def save_state(last_id, sent_titles):
+def save_state(sent_titles):
     with open(LAST_ID_FILE, "w") as f:
-        json.dump({"last_id": last_id, "sent_titles": sent_titles[-50:]}, f, ensure_ascii=False)
+        json.dump({"sent_titles": sent_titles[-200:]}, f, ensure_ascii=False)
 
 
 def main():
@@ -83,32 +81,19 @@ def main():
         return
 
     state = load_state()
-    last_id = state.get("last_id", "0")
     sent_titles = state.get("sent_titles", [])
 
-    new_posts = []
-    for p in posts:
-        if int(p["id"]) > int(last_id):
-            new_posts.append(p)
+    new_posts = [p for p in posts if p["title"] not in sent_titles]
 
     if not new_posts:
         print("신규 게시물 없음")
         return
 
     sent_count = 0
-    new_last_id = last_id
-
     for post in reversed(new_posts):
-        if post["title"] in sent_titles:
-            print("중복 제목 건너뜀: " + post["title"])
-            new_last_id = post["id"]
-            continue
-
         success = send_telegram(post["title"], post["link"], post["is_press"], post["is_notice"])
-
         if success:
             sent_titles.append(post["title"])
-            new_last_id = post["id"]
             sent_count += 1
             if post["is_press"]:
                 tag = "보도자료"
@@ -118,10 +103,10 @@ def main():
                 tag = "일반"
             print("(" + tag + "): " + post["title"])
         else:
-            print("발송 실패로 last_id 업데이트 중단: " + post["title"])
+            print("발송 실패로 중단: " + post["title"])
             break
 
-    save_state(new_last_id, sent_titles)
+    save_state(sent_titles)
     print("완료: 신규 " + str(len(new_posts)) + "개 중 " + str(sent_count) + "개 발송")
 
 
